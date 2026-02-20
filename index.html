@@ -972,22 +972,20 @@ const loadShows = async (userId) => {
 
 const deleteShow = async (showId) => {
   if (!user) return;
-
-  const confirmed = confirm("Delete this show?");
-  if (!confirmed) return;
+  if (!confirm("Delete this show?")) return;
 
   try {
     const userRef = db.collection("users").doc(user.uid);
 
-    // ✅ Proper way to delete nested map key in Firestore
-    await userRef.update({
-      [`shows.${showId}`]: firebase.firestore.FieldValue.delete(),
-      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    // ✅ FieldPath avoids dot-parsing issues in keys
+    const showPath = new firebase.firestore.FieldPath("shows", String(showId));
 
-    // Reload updated list
+    await userRef.update(
+      showPath, firebase.firestore.FieldValue.delete(),
+      "lastUpdated", firebase.firestore.FieldValue.serverTimestamp()
+    );
+
     await loadShows(user.uid);
-
   } catch (error) {
     console.error("Error deleting show:", error);
   }
@@ -1507,8 +1505,8 @@ const deleteShow = async (showId) => {
                   <button 
                     type="button" 
                     className="btn-secondary" 
-                    onClick={() => {
-                      onDelete(show.id);
+                    onClick={async () => {
+                      await onDelete(show.id);
                       onClose();
                     }}
                     style={{ color: '#ef4444' }}
