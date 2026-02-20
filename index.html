@@ -801,6 +801,21 @@
       }
     };
 
+    const fetchTMDBDetails = async (tvId) => {
+      if (!tvId) return null;
+      try {
+        const response = await fetch(
+          `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}`
+        );
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (error) {
+        console.error('TMDB details error:', error);
+        return null;
+      }
+    };
+
+
     // ============================================
     // STATUS CONFIG
     // ============================================
@@ -823,6 +838,7 @@
       const [searchQuery, setSearchQuery] = useState('');
       const [statusFilter, setStatusFilter] = useState('all');
       const [viewMode, setViewMode] = useState('grid');
+      const [sortOption, setSortOption] = useState('titleAsc');
       const [isAddingShow, setIsAddingShow] = useState(false);
       const [editingShow, setEditingShow] = useState(null);
 
@@ -954,40 +970,67 @@ const loadShows = async (userId) => {
         }
       };
 
-      const deleteShow = async (showId) => {
-        if (!user) return;
-        
-        if (!confirm('Delete this show?')) return;
-        
-        try {
-          const userRef = db.collection('users').doc(user.uid);
-          const userDoc = await userRef.get();
-          const data = userDoc.data() || {};
-          const showsMap = data.shows || {};
-          
-          // Delete the show from the map
-          delete showsMap[showId];
-          
-          // Save the updated shows map
-          await userRef.set({
-            shows: showsMap,
-            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          
-          await loadShows(user.uid);
-        } catch (error) {
-          console.error('Error deleting show:', error);
-        }
-      };
+const deleteShow = async (showId) => {
+  if (!user) return;
 
-      // Filtered shows
+  if (!confirm("Delete this show?")) return;
+
+  try {
+    const userRef = db.collection("users").doc(user.uid);
+
+    // ✅ This actually deletes a key inside the "shows" map in Firestore
+    await userRef.update({
+      [`shows.${showId}`]: firebase.firestore.FieldValue.delete(),
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await loadShows(user.uid);
+  } catch (error) {
+    console.error("Error deleting show:", error);
+  }
+};
+
+      // Filtered + Sorted shows
       const filteredShows = useMemo(() => {
-        return shows.filter(show => {
-          const matchesSearch = show.title.toLowerCase().includes(searchQuery.toLowerCase());
+        const filtered = shows.filter(show => {
+          const matchesSearch = (show.title || '').toLowerCase().includes(searchQuery.toLowerCase());
           const matchesStatus = statusFilter === 'all' || show.status === statusFilter;
           return matchesSearch && matchesStatus;
         });
-      }, [shows, searchQuery, statusFilter]);
+
+        const sorted = [...filtered];
+        const safeNum = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : null);
+
+        sorted.sort((a, b) => {
+          const at = (a.title || '').toLowerCase();
+          const bt = (b.title || '').toLowerCase();
+          const ar = safeNum(a.imdbRating);
+          const br = safeNum(b.imdbRating);
+
+          switch (sortOption) {
+            case 'titleDesc':
+              return bt.localeCompare(at);
+            case 'imdbAsc': {
+              // missing ratings go last
+              if (ar === null && br === null) return at.localeCompare(bt);
+              if (ar === null) return 1;
+              if (br === null) return -1;
+              return ar - br || at.localeCompare(bt);
+            }
+            case 'imdbDesc': {
+              if (ar === null && br === null) return at.localeCompare(bt);
+              if (ar === null) return 1;
+              if (br === null) return -1;
+              return br - ar || at.localeCompare(bt);
+            }
+            case 'titleAsc':
+            default:
+              return at.localeCompare(bt);
+          }
+        });
+
+        return sorted;
+      }, [shows, searchQuery, statusFilter, sortOption]);
 
       // Stats
       const stats = useMemo(() => {
@@ -1049,7 +1092,17 @@ const loadShows = async (userId) => {
                 <option value="all">All Shows</option>
                 {Object.entries(statusConfig).map(([key, config]) => (
                   <option key={key} value={key}>{config.label}</option>
-                ))}
+                ))}</select>
+
+              <select 
+                className="filter-select"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+              >
+                <option value="titleAsc">Title (A–Z)</option>
+                <option value="titleDesc">Title (Z–A)</option>
+                <option value="imdbDesc">IMDb Rating (High → Low)</option>
+                <option value="imdbAsc">IMDb Rating (Low → High)</option>
               </select>
 
               <div className="view-toggle">
@@ -1107,7 +1160,20 @@ const loadShows = async (userId) => {
                     <div className="list-info">
                       <div className="list-title">{show.title}</div>
                       <div className="list-meta">
-                        {show.year && <span>{show.year} • </span>}
+                        {show.year && <span>{show.year}</span>}
+                        {show.seasons !== undefined && show.seasons !== '' && (
+                          <>
+                            {show.year && <span> • </span>}
+                            <span>{show.seasons} season{Number(show.seasons) === 1 ? '' : 's'}</span>
+                          </>
+                        )}
+                        {show.imdbRating ? (
+                          <>
+                            {(show.year || (show.seasons !== undefined && show.seasons !== '')) && <span> • </span>}
+                            <span>IMDb {Number(show.imdbRating).toFixed(1)}</span>
+                          </>
+                        ) : null}
+                        {(show.year || (show.seasons !== undefined && show.seasons !== '') || show.imdbRating) && <span> • </span>}
                         <span className={`status-badge ${statusConfig[show.status]?.className}`}>
                           {statusConfig[show.status]?.label}
                         </span>
@@ -1251,7 +1317,9 @@ const loadShows = async (userId) => {
         rating: show?.rating || 0,
         notes: show?.notes || '',
         posterUrl: show?.posterUrl || '',
-        tmdbId: show?.tmdbId || null
+        tmdbId: show?.tmdbId || null,
+        seasons: typeof show?.seasons === 'number' ? show.seasons : (show?.seasons || ''),
+        imdbRating: typeof show?.imdbRating === 'number' ? show.imdbRating : 0
       });
 
       const searchTimeout = useRef(null);
@@ -1371,6 +1439,18 @@ const loadShows = async (userId) => {
                   placeholder="2024"
                   value={formData.year}
                   onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Seasons</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="form-input"
+                  placeholder="1"
+                  value={formData.seasons}
+                  onChange={(e) => setFormData({ ...formData, seasons: e.target.value === '' ? '' : Number(e.target.value) })}
                 />
               </div>
 
