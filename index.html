@@ -973,18 +973,21 @@ const loadShows = async (userId) => {
 const deleteShow = async (showId) => {
   if (!user) return;
 
-  if (!confirm("Delete this show?")) return;
+  const confirmed = confirm("Delete this show?");
+  if (!confirmed) return;
 
   try {
     const userRef = db.collection("users").doc(user.uid);
 
-    // ✅ This actually deletes a key inside the "shows" map in Firestore
+    // ✅ Proper way to delete nested map key in Firestore
     await userRef.update({
       [`shows.${showId}`]: firebase.firestore.FieldValue.delete(),
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    // Reload updated list
     await loadShows(user.uid);
+
   } catch (error) {
     console.error("Error deleting show:", error);
   }
