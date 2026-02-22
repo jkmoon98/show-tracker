@@ -13,7 +13,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   
-  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <style>
     * {
@@ -23,216 +23,199 @@
     }
 
     :root {
-      --bg-primary: #14181c;
-      --bg-secondary: #1c2128;
-      --bg-card: #2c3440;
-      --text-primary: #ffffff;
-      --text-secondary: #9ab;
-      --text-muted: #678;
-      --accent-green: #00e054;
-      --accent-green-hover: #00c248;
-      --accent-orange: #ff8000;
-      --border-color: #456;
-      --rating-star: #00e054;
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card: #21262d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent: #3fb950;
+      --accent-hover: #2ea043;
+      --accent-orange: #d29922;
+      --border: rgba(48,54,61,0.5);
+      --rating-star: #3fb950;
     }
 
     body {
-      font-family: 'Karla', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background-color: var(--bg-primary);
+      font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
       color: var(--text-primary);
       line-height: 1.5;
+      font-size: 15px;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
-    /* Subtle film grain texture */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0.03;
+    #root {
+      position: relative;
       z-index: 1;
-      pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      min-height: 100vh;
     }
 
-    /* Header styles */
+    /* Header – minimal */
     .app-header {
-      position: relative;
-      z-index: 2;
-      padding: 40px 20px 32px;
-      text-align: center;
-      border-bottom: 1px solid var(--border-color);
+      padding: 28px 24px 24px;
+      border-bottom: 1px solid var(--border);
     }
 
     .app-title {
-      font-family: 'Crimson Pro', serif;
-      font-size: clamp(42px, 6vw, 64px);
+      font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.02em;
-      margin-bottom: 8px;
       color: var(--text-primary);
     }
 
     .app-subtitle {
-      font-size: 15px;
-      color: var(--text-secondary);
-      font-weight: 500;
-      letter-spacing: 0.3px;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
 
-    /* Container */
     .container {
-      max-width: 1400px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 32px 20px;
+      padding: 24px 20px;
       position: relative;
-      z-index: 2;
     }
 
-    /* Toolbar */
+    /* Toolbar – compact */
     .toolbar {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 32px;
+      gap: 10px;
+      margin-bottom: 28px;
       align-items: center;
     }
 
     .search-box {
       flex: 1;
-      min-width: 250px;
+      min-width: 220px;
       position: relative;
     }
 
     .search-input {
       width: 100%;
-      padding: 12px 16px 12px 44px;
+      padding: 8px 12px 8px 36px;
       background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--text-primary);
-      font-size: 14px;
-      font-family: 'Karla', sans-serif;
-      transition: border-color 0.2s;
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
     }
 
     .search-input:focus {
       outline: none;
-      border-color: var(--accent-green);
+      border-color: var(--accent);
     }
 
     .search-icon {
       position: absolute;
-      left: 16px;
+      left: 12px;
       top: 50%;
       transform: translateY(-50%);
       color: var(--text-muted);
     }
 
     .filter-select {
-      padding: 12px 16px;
+      padding: 8px 12px;
       background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--text-primary);
-      font-size: 14px;
-      font-family: 'Karla', sans-serif;
+      font-size: 0.875rem;
+      font-family: inherit;
       cursor: pointer;
-      transition: border-color 0.2s;
     }
 
     .filter-select:focus {
       outline: none;
-      border-color: var(--accent-green);
+      border-color: var(--accent);
     }
 
     .btn-primary {
-      padding: 12px 24px;
-      background: var(--accent-green);
+      padding: 8px 16px;
+      background: var(--accent);
       border: none;
-      border-radius: 4px;
-      color: var(--bg-primary);
-      font-size: 14px;
-      font-weight: 700;
-      font-family: 'Karla', sans-serif;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      transition: background 0.15s;
     }
 
     .btn-primary:hover {
-      background: var(--accent-green-hover);
+      background: var(--accent-hover);
     }
 
     .btn-secondary {
-      padding: 12px 24px;
+      padding: 8px 16px;
       background: transparent;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--text-secondary);
-      font-size: 14px;
-      font-weight: 600;
-      font-family: 'Karla', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: border-color 0.15s, color 0.15s;
     }
 
     .btn-secondary:hover {
-      border-color: var(--text-secondary);
+      border-color: var(--text-muted);
       color: var(--text-primary);
     }
 
-    /* View toggle */
     .view-toggle {
       display: flex;
-      gap: 4px;
+      gap: 2px;
       background: var(--bg-secondary);
-      padding: 4px;
-      border-radius: 4px;
-      border: 1px solid var(--border-color);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
     }
 
     .view-toggle button {
-      padding: 8px 16px;
+      padding: 6px 12px;
       background: transparent;
       border: none;
-      border-radius: 2px;
-      color: var(--text-secondary);
-      font-size: 13px;
-      font-weight: 600;
-      font-family: 'Karla', sans-serif;
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      transition: all 0.15s;
     }
 
     .view-toggle button.active {
-      background: var(--accent-green);
-      color: var(--bg-primary);
+      background: var(--accent);
+      color: #fff;
     }
 
-    /* Poster grid */
+    /* Poster grid – Letterboxd-style focus on posters */
     .poster-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 20px;
-      margin-bottom: 40px;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
     }
 
     .poster-card {
       position: relative;
       cursor: pointer;
-      transition: transform 0.2s;
+      transition: transform 0.2s ease;
     }
 
     .poster-card:hover {
-      transform: translateY(-4px);
+      transform: translateY(-2px);
     }
 
     .poster-wrapper {
@@ -240,9 +223,8 @@
       width: 100%;
       aspect-ratio: 2/3;
       background: var(--bg-card);
-      border-radius: 4px;
+      border-radius: 6px;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
 
     .poster-img {
@@ -254,13 +236,13 @@
     .poster-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 40%);
+      background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%);
       opacity: 0;
       transition: opacity 0.2s;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
-      padding: 12px;
+      padding: 10px;
     }
 
     .poster-card:hover .poster-overlay {
@@ -270,48 +252,53 @@
     .poster-rating {
       display: flex;
       gap: 2px;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     .show-title {
-      font-size: 13px;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: var(--text-primary);
-      margin-top: 8px;
-      line-height: 1.3;
+      margin-top: 6px;
+      line-height: 1.35;
       text-align: center;
     }
 
-    /* List view */
+    /* List view – cleaner rows */
     .list-view {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-bottom: 40px;
+      gap: 0;
+      margin-bottom: 32px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
     }
 
     .list-item {
       display: flex;
       align-items: center;
-      gap: 16px;
-      padding: 16px;
+      gap: 14px;
+      padding: 12px 16px;
       background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.15s;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
     }
 
     .list-item:hover {
-      border-color: var(--accent-green);
-      transform: translateX(4px);
+      background: var(--bg-card);
     }
 
     .list-poster {
-      width: 50px;
-      height: 75px;
+      width: 44px;
+      height: 66px;
       background: var(--bg-card);
-      border-radius: 2px;
+      border-radius: 4px;
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -322,94 +309,87 @@
       object-fit: cover;
     }
 
-    .list-info {
-      flex: 1;
-    }
+    .list-info { flex: 1; min-width: 0; }
 
     .list-title {
-      font-size: 16px;
+      font-size: 0.9375rem;
       font-weight: 600;
       color: var(--text-primary);
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
     .list-meta {
-      font-size: 13px;
-      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      color: var(--text-muted);
     }
 
-    .list-rating {
-      display: flex;
-      gap: 3px;
-    }
+    .list-rating { display: flex; gap: 2px; }
 
-    /* Status badge */
+    /* Status – small pills */
     .status-badge {
       display: inline-block;
-      padding: 4px 10px;
-      font-size: 11px;
+      padding: 2px 8px;
+      font-size: 0.6875rem;
       font-weight: 600;
-      border-radius: 3px;
+      border-radius: 4px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.03em;
     }
 
     .status-watching {
-      background: var(--accent-green);
-      color: var(--bg-primary);
+      background: var(--accent);
+      color: #fff;
     }
 
     .status-completed {
       background: var(--accent-orange);
-      color: var(--bg-primary);
+      color: #fff;
     }
 
     .status-planToWatch {
-      background: #40bcf4;
-      color: var(--bg-primary);
+      background: #58a6ff;
+      color: #fff;
     }
 
     .status-dropped {
-      background: #9ab;
-      color: var(--bg-primary);
+      background: var(--text-muted);
+      color: #fff;
     }
 
-    /* Stats section */
+    /* Stats – slim inline feel */
     .stats-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 16px;
-      padding: 32px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      margin-bottom: 40px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      padding: 16px 0;
+      margin-bottom: 28px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
     }
 
     .stat-item {
-      text-align: center;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
     }
 
     .stat-number {
-      font-size: 32px;
+      font-size: 1.25rem;
       font-weight: 700;
-      color: var(--accent-green);
-      margin-bottom: 4px;
+      color: var(--accent);
     }
 
     .stat-label {
-      font-size: 12px;
+      font-size: 0.8125rem;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
+      font-weight: 500;
     }
 
-    /* Modal */
+    /* Modal – cleaner */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0,0,0,0.75);
       z-index: 1000;
       display: flex;
       align-items: center;
@@ -419,69 +399,59 @@
 
     .modal-content {
       background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      padding: 32px;
-      max-width: 600px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      max-width: 520px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
     }
 
     .modal-header {
-      font-family: 'Crimson Pro', serif;
-      font-size: 28px;
+      font-size: 1.25rem;
       font-weight: 700;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       color: var(--text-primary);
     }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
+    .form-group { margin-bottom: 16px; }
 
     .form-label {
       display: block;
-      font-size: 13px;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: var(--text-secondary);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      margin-bottom: 6px;
     }
 
     .form-input,
     .form-textarea,
     .form-select {
       width: 100%;
-      padding: 12px 16px;
+      padding: 10px 12px;
       background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       color: var(--text-primary);
-      font-size: 14px;
-      font-family: 'Karla', sans-serif;
-      transition: border-color 0.2s;
+      font-size: 0.9375rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
     }
 
     .form-input:focus,
     .form-textarea:focus,
     .form-select:focus {
       outline: none;
-      border-color: var(--accent-green);
+      border-color: var(--accent);
     }
 
     .form-textarea {
       resize: vertical;
-      min-height: 100px;
+      min-height: 80px;
     }
 
-    /* Star rating input */
-    .star-rating-input {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
+    .star-rating-input { display: flex; gap: 6px; margin-top: 6px; }
 
     .star-btn {
       background: none;
@@ -491,206 +461,287 @@
       transition: transform 0.1s;
     }
 
-    .star-btn:hover {
-      transform: scale(1.15);
-    }
+    .star-btn:hover { transform: scale(1.1); }
 
-    .star-icon {
-      width: 24px;
-      height: 24px;
-    }
+    .star-icon { width: 24px; height: 24px; }
 
-    .star-filled {
-      fill: var(--rating-star);
-      stroke: var(--rating-star);
-    }
+    .star-filled { fill: var(--rating-star); stroke: var(--rating-star); }
 
-    .star-empty {
-      fill: none;
-      stroke: var(--text-muted);
-    }
+    .star-empty { fill: none; stroke: var(--text-muted); }
 
-    /* Modal buttons */
     .modal-actions {
       display: flex;
-      gap: 12px;
-      margin-top: 24px;
+      gap: 10px;
+      margin-top: 20px;
     }
 
-    .modal-actions button {
-      flex: 1;
-    }
+    .modal-actions button { flex: 1; }
 
-    /* TMDB search results */
+    /* TMDB results */
     .tmdb-results {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-top: 12px;
-      max-height: 400px;
+      gap: 8px;
+      margin-top: 10px;
+      max-height: 320px;
       overflow-y: auto;
     }
 
     .tmdb-result {
       display: flex;
       gap: 12px;
-      padding: 12px;
+      padding: 10px 12px;
       background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       cursor: pointer;
-      transition: border-color 0.2s;
+      transition: border-color 0.15s;
     }
 
-    .tmdb-result:hover {
-      border-color: var(--accent-green);
-    }
+    .tmdb-result:hover { border-color: var(--accent); }
 
     .tmdb-poster {
-      width: 50px;
-      height: 75px;
+      width: 44px;
+      height: 66px;
       background: var(--bg-card);
-      border-radius: 2px;
+      border-radius: 4px;
       overflow: hidden;
       flex-shrink: 0;
     }
 
-    .tmdb-poster img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .tmdb-poster img { width: 100%; height: 100%; object-fit: cover; }
 
-    .tmdb-info {
-      flex: 1;
-    }
+    .tmdb-info { flex: 1; min-width: 0; }
 
     .tmdb-title {
-      font-size: 14px;
+      font-size: 0.9375rem;
       font-weight: 600;
       color: var(--text-primary);
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
-    .tmdb-meta {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
+    .tmdb-meta { font-size: 0.8125rem; color: var(--text-muted); }
 
     /* Empty state */
     .empty-state {
       text-align: center;
-      padding: 80px 20px;
+      padding: 48px 20px;
       color: var(--text-muted);
     }
 
-    .empty-icon {
-      margin-bottom: 16px;
-      opacity: 0.5;
-    }
+    .empty-icon { margin-bottom: 12px; opacity: 0.5; }
 
     .empty-title {
-      font-size: 18px;
+      font-size: 1rem;
       font-weight: 600;
       color: var(--text-secondary);
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
-    .empty-text {
-      font-size: 14px;
-    }
+    .empty-text { font-size: 0.875rem; }
 
     /* Footer */
     .app-footer {
       text-align: center;
-      padding: 40px 20px;
+      padding: 28px 20px;
       color: var(--text-muted);
-      font-size: 12px;
-      border-top: 1px solid var(--border-color);
+      font-size: 0.8125rem;
+      border-top: 1px solid var(--border);
     }
 
     .app-footer a {
-      color: var(--accent-green);
+      color: var(--accent);
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 500;
     }
 
-    .app-footer a:hover {
-      text-decoration: underline;
-    }
+    .app-footer a:hover { text-decoration: underline; }
 
-    /* Auth section */
+    /* Auth */
     .auth-section {
       text-align: center;
-      padding: 20px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      margin-bottom: 32px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
     }
 
     .user-info {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 12px;
       color: var(--text-secondary);
-      font-size: 14px;
+      font-size: 0.875rem;
     }
 
-    /* Loading state */
     .loading {
       text-align: center;
-      padding: 60px 20px;
-      color: var(--text-secondary);
-      font-size: 16px;
+      padding: 48px 20px;
+      color: var(--text-muted);
+      font-size: 0.9375rem;
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-      .app-title {
-        font-size: 36px;
-      }
-
-      .toolbar {
-        flex-direction: column;
-      }
-
-      .search-box {
-        width: 100%;
-      }
-
-      .poster-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: 16px;
-      }
-
-      .modal-content {
-        padding: 24px;
-      }
-
-      .stats-section {
-        padding: 24px;
-      }
+    /* Show detail modal – IMDb-style info */
+    .detail-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
 
-    /* Scrollbar styling */
-    ::-webkit-scrollbar {
-      width: 12px;
+    .detail-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-width: 640px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
 
-    ::-webkit-scrollbar-track {
-      background: var(--bg-primary);
+    .detail-modal-body {
+      display: flex;
+      gap: 24px;
+      padding: 24px;
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: var(--bg-card);
+    .detail-poster {
+      width: 160px;
+      flex-shrink: 0;
       border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-card);
+      aspect-ratio: 2/3;
     }
 
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--border-color);
+    .detail-poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
+
+    .detail-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .detail-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .detail-meta {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .detail-meta span + span::before {
+      content: ' · ';
+      color: var(--text-muted);
+    }
+
+    .detail-rating-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .detail-user-rating {
+      display: flex;
+      gap: 2px;
+    }
+
+    .detail-overview {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+
+    .detail-notes {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+
+    .detail-cast-heading {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .detail-cast-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .detail-cast-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .detail-cast-item .name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .detail-cast-item .character {
+      color: var(--text-muted);
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: auto;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      .detail-modal-body {
+        flex-direction: column;
+        padding: 20px;
+      }
+      .detail-poster {
+        width: 120px;
+        margin: 0 auto;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-header { padding: 20px 16px; }
+      .toolbar { flex-direction: column; margin-bottom: 20px; }
+      .search-box { width: 100%; }
+      .poster-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 12px;
+      }
+      .modal-content { padding: 20px; }
+      .stats-section { gap: 16px; padding: 12px 0; }
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -711,6 +762,7 @@
     // FIREBASE CONFIGURATION
     // ============================================
     const firebaseConfig = window.FIREBASE_CONFIG;
+    const isFileProtocol = window.location.protocol === 'file:';
     let auth = null;
     let db = null;
     let firebaseEnabled = false;
@@ -813,16 +865,59 @@
       }
     };
 
+    const fetchTMDBCredits = async (tvId) => {
+      if (!tvId || !TMDB_API_KEY) return null;
+      try {
+        const response = await fetch(
+          `${TMDB_BASE_URL}/tv/${tvId}/credits?api_key=${TMDB_API_KEY}`
+        );
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.cast || [];
+      } catch (error) {
+        console.error('TMDB credits error:', error);
+        return [];
+      }
+    };
 
     // ============================================
     // STATUS CONFIG
     // ============================================
 
     const statusConfig = {
-      watching: { label: 'Watching', color: '#00e054', className: 'status-watching' },
-      completed: { label: 'Completed', color: '#ff8000', className: 'status-completed' },
-      planToWatch: { label: 'Plan to Watch', color: '#40bcf4', className: 'status-planToWatch' },
-      dropped: { label: 'Dropped', color: '#9ab', className: 'status-dropped' }
+      watching: { label: 'Watching', color: '#3fb950', className: 'status-watching' },
+      completed: { label: 'Completed', color: '#d29922', className: 'status-completed' },
+      planToWatch: { label: 'Plan to Watch', color: '#58a6ff', className: 'status-planToWatch' },
+      dropped: { label: 'Dropped', color: '#6e7681', className: 'status-dropped' }
+    };
+
+    // ============================================
+    // GUEST MODE (localStorage when not signed in)
+    // ============================================
+    const GUEST_STORAGE_KEY = 'show-tracker-guest-shows';
+
+    const loadGuestShows = () => {
+      try {
+        const raw = localStorage.getItem(GUEST_STORAGE_KEY);
+        if (!raw) return [];
+        const list = JSON.parse(raw);
+        if (!Array.isArray(list)) return [];
+        return list.map(show => {
+          let posterUrl = show.posterUrl || '';
+          if (!posterUrl && show.posterPath) posterUrl = `${TMDB_IMAGE_BASE}${show.posterPath}`;
+          return { ...show, posterUrl };
+        });
+      } catch {
+        return [];
+      }
+    };
+
+    const saveGuestShows = (list) => {
+      try {
+        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.error('Guest save failed:', e);
+      }
     };
 
     // ============================================
@@ -839,10 +934,12 @@
       const [sortOption, setSortOption] = useState('titleAsc');
       const [isAddingShow, setIsAddingShow] = useState(false);
       const [editingShow, setEditingShow] = useState(null);
+      const [viewingShow, setViewingShow] = useState(null);
 
-      // Auth listener
+      // Auth listener + guest load
       useEffect(() => {
         if (!firebaseEnabled) {
+          setShows(loadGuestShows());
           setIsLoading(false);
           return;
         }
@@ -852,7 +949,7 @@
           if (user) {
             loadShows(user.uid);
           } else {
-            setShows([]);
+            setShows(loadGuestShows());
             setIsLoading(false);
           }
         });
@@ -908,7 +1005,32 @@
       };
 
       const saveShow = async (showData) => {
-        if (!user) return;
+        if (!user) {
+          // Guest mode: save to localStorage
+          const list = loadGuestShows();
+          const { id, ...rest } = showData;
+          const payload = { ...rest };
+          if (id !== null && id !== undefined && id !== '') {
+            const idx = list.findIndex(s => String(s.id) === String(id));
+            if (idx >= 0) {
+              const next = [...list];
+              next[idx] = { ...list[idx], ...payload, id: list[idx].id };
+              saveGuestShows(next);
+              setShows(next);
+            } else {
+              const next = [...list, { ...payload, id: list.length }];
+              saveGuestShows(next);
+              setShows(next);
+            }
+          } else {
+            const next = [...list, { ...payload, id: list.length }];
+            saveGuestShows(next);
+            setShows(next);
+          }
+          setIsAddingShow(false);
+          setEditingShow(null);
+          return;
+        }
 
         try {
           const userRef = db.collection('users').doc(user.uid);
@@ -917,13 +1039,11 @@
           const showsMap = data.shows || {};
           
           if (showData.id) {
-            // Update existing show
             showsMap[showData.id] = {
               ...showData,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
           } else {
-            // Create new show with numeric ID
             const nextId = Object.keys(showsMap).length;
             const { id, ...dataWithoutId } = showData;
             showsMap[nextId] = {
@@ -932,7 +1052,6 @@
             };
           }
           
-          // Save the updated shows map
           await userRef.set({
             shows: showsMap,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
@@ -947,8 +1066,14 @@
       };
 
       const deleteShow = async (showId) => {
-        if (!user) return;
         if (!confirm('Delete this show?')) return;
+        if (!user) {
+          const list = loadGuestShows().filter(s => String(s.id) !== String(showId));
+          saveGuestShows(list);
+          setShows(list);
+          setEditingShow(null);
+          return;
+        }
         try {
           const userRef = db.collection('users').doc(user.uid);
           const updates = {
@@ -957,6 +1082,7 @@
           };
           await userRef.update(updates);
           await loadShows(user.uid);
+          setEditingShow(null);
         } catch (error) {
           console.error('Error deleting show:', error);
         }
@@ -1032,10 +1158,25 @@
                     <span>Signed in as {user.email}</span>
                     <button className="btn-secondary" onClick={signOut}>Sign Out</button>
                   </div>
+                ) : isFileProtocol ? (
+                  <div>
+                    <p style={{ marginBottom: '12px', color: 'var(--text-secondary)' }}>
+                      Sign-in only works over http. Run a local server:
+                    </p>
+                    <code style={{ display: 'block', padding: '12px', background: 'var(--bg-primary)', borderRadius: '4px', fontSize: '13px', marginBottom: '12px' }}>
+                      npx serve .
+                    </code>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                      Then open the URL it shows (e.g. http://localhost:3000)
+                    </p>
+                  </div>
                 ) : (
                   <div>
-                    <p style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}>
-                      Sign in to sync your shows across devices
+                    <p style={{ marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      Guest mode – your list is saved in this browser only.
+                    </p>
+                    <p style={{ marginBottom: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      Sign in to sync across devices
                     </p>
                     <button className="btn-primary" onClick={signIn}>Sign In with Google</button>
                   </div>
@@ -1102,10 +1243,14 @@
               <button 
                 className="btn-primary" 
                 onClick={() => setIsAddingShow(true)}
-                disabled={!user}
               >
                 <Plus size={16} /> Add Show
               </button>
+              {!user && firebaseEnabled && (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Guest – saved in this browser
+                </span>
+              )}
             </div>
 
             {/* Content */}
@@ -1129,7 +1274,7 @@
                   <div 
                     key={show.id} 
                     className="list-item"
-                    onClick={() => setEditingShow(show)}
+                    onClick={() => setViewingShow(show)}
                   >
                     <div className="list-poster">
                       {show.posterUrl && (
@@ -1174,7 +1319,7 @@
                   <div 
                     key={show.id}
                     className="poster-card"
-                    onClick={() => setEditingShow(show)}
+                    onClick={() => setViewingShow(show)}
                   >
                     <div className="poster-wrapper">
                       {show.posterUrl ? (
@@ -1268,6 +1413,21 @@
             />
           )}
 
+          {viewingShow && (
+            <ShowDetailModal
+              show={viewingShow}
+              onClose={() => setViewingShow(null)}
+              onEdit={() => {
+                setViewingShow(null);
+                setEditingShow(viewingShow);
+              }}
+              onDelete={async (id) => {
+                await deleteShow(id);
+                setViewingShow(null);
+              }}
+            />
+          )}
+
           {editingShow && (
             <FormModal
               show={editingShow}
@@ -1281,6 +1441,116 @@
     };
 
     // ============================================
+    // SHOW DETAIL MODAL (IMDb-style info)
+    // ============================================
+
+    const ShowDetailModal = ({ show, onClose, onEdit, onDelete }) => {
+      const [tmdbDetails, setTmdbDetails] = useState(null);
+      const [cast, setCast] = useState([]);
+      const [loadingDetails, setLoadingDetails] = useState(!!show?.tmdbId);
+
+      useEffect(() => {
+        if (!show?.tmdbId) {
+          setLoadingDetails(false);
+          return;
+        }
+        let cancelled = false;
+        Promise.all([
+          fetchTMDBDetails(show.tmdbId),
+          fetchTMDBCredits(show.tmdbId)
+        ]).then(([details, castList]) => {
+          if (!cancelled) {
+            setTmdbDetails(details);
+            setCast(Array.isArray(castList) ? castList.slice(0, 20) : []);
+            setLoadingDetails(false);
+          }
+        }).catch(() => setLoadingDetails(false));
+        return () => { cancelled = true; };
+      }, [show?.tmdbId]);
+
+      const overview = tmdbDetails?.overview || show.notes || null;
+
+      return (
+        <div className="detail-modal-overlay" onClick={onClose}>
+          <div className="detail-modal-content" onClick={e => e.stopPropagation()}>
+            <div className="detail-modal-body">
+              <div className="detail-poster">
+                {show.posterUrl ? (
+                  <img src={show.posterUrl} alt={show.title} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                    <Film size={48} />
+                  </div>
+                )}
+              </div>
+              <div className="detail-info">
+                <h2 className="detail-title">{show.title}</h2>
+                {(show.year || (show.seasons !== undefined && show.seasons !== '') || tmdbDetails?.number_of_episodes != null) && (
+                  <div className="detail-meta">
+                    {show.year && <span>{show.year}</span>}
+                    {show.seasons !== undefined && show.seasons !== '' && (
+                      <span>{show.seasons} season{Number(show.seasons) === 1 ? '' : 's'}</span>
+                    )}
+                    {tmdbDetails?.number_of_episodes != null && (
+                      <span>{tmdbDetails.number_of_episodes} episodes</span>
+                    )}
+                  </div>
+                )}
+                <div className="detail-rating-row">
+                  {show.rating > 0 && (
+                    <div className="detail-user-rating">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={20} filled={i < show.rating} />
+                      ))}
+                    </div>
+                  )}
+                  {(show.imdbRating != null && show.imdbRating > 0) && (
+                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      TMDB {Number(show.imdbRating).toFixed(1)}/10
+                    </span>
+                  )}
+                  <span className={`status-badge ${statusConfig[show.status]?.className}`}>
+                    {statusConfig[show.status]?.label}
+                  </span>
+                </div>
+                {loadingDetails ? (
+                  <p className="detail-overview" style={{ color: 'var(--text-muted)' }}>Loading description…</p>
+                ) : overview ? (
+                  <p className="detail-overview">{overview}</p>
+                ) : null}
+                {show.notes && overview !== show.notes && (
+                  <p className="detail-notes">Your notes: {show.notes}</p>
+                )}
+                {cast.length > 0 && (
+                  <>
+                    <div className="detail-cast-heading">Cast</div>
+                    <div className="detail-cast-list">
+                      {cast.map((c, i) => (
+                        <div key={c.id ?? i} className="detail-cast-item">
+                          <span className="name">{c.name}</span>
+                          {c.character && (
+                            <span className="character">· {c.character}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="detail-actions">
+              <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
+              <button type="button" className="btn-secondary" onClick={() => onDelete(show.id)} style={{ color: '#f85149' }}>
+                Delete
+              </button>
+              <button type="button" className="btn-primary" onClick={onEdit}>Edit</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ============================================
     // FORM MODAL
     // ============================================
 
@@ -1288,7 +1558,8 @@
       const [tmdbQuery, setTmdbQuery] = useState('');
       const [tmdbResults, setTmdbResults] = useState([]);
       const [isSearching, setIsSearching] = useState(false);
-      
+      const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
       const [formData, setFormData] = useState({
         title: show?.title || '',
         year: show?.year || '',
@@ -1320,16 +1591,34 @@
         };
       }, [tmdbQuery]);
 
-      const selectTMDBShow = (result) => {
-        setFormData({
-          ...formData,
-          title: result.name,
-          year: result.first_air_date?.substring(0, 4) || '',
-          posterUrl: result.poster_path ? `${TMDB_IMAGE_BASE}${result.poster_path}` : '',
-          tmdbId: result.id
-        });
+      const selectTMDBShow = async (result) => {
         setTmdbResults([]);
         setTmdbQuery('');
+        setIsLoadingDetails(true);
+        try {
+          const details = await fetchTMDBDetails(result.id);
+          const numSeasons = details?.number_of_seasons != null ? details.number_of_seasons : '';
+          const voteAvg = details?.vote_average != null ? Number(details.vote_average) : 0;
+          setFormData(prev => ({
+            ...prev,
+            title: result.name,
+            year: result.first_air_date?.substring(0, 4) || '',
+            posterUrl: result.poster_path ? `${TMDB_IMAGE_BASE}${result.poster_path}` : '',
+            tmdbId: result.id,
+            seasons: numSeasons,
+            imdbRating: voteAvg
+          }));
+        } catch (e) {
+          setFormData(prev => ({
+            ...prev,
+            title: result.name,
+            year: result.first_air_date?.substring(0, 4) || '',
+            posterUrl: result.poster_path ? `${TMDB_IMAGE_BASE}${result.poster_path}` : '',
+            tmdbId: result.id
+          }));
+        } finally {
+          setIsLoadingDetails(false);
+        }
       };
 
       const handleSubmit = (e) => {
@@ -1365,9 +1654,9 @@
                     onChange={(e) => setTmdbQuery(e.target.value)}
                   />
                   
-                  {isSearching && (
+                  {(isSearching || isLoadingDetails) && (
                     <div style={{ marginTop: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                      Searching...
+                      {isSearching ? 'Searching...' : 'Loading show details (seasons, rating)...'}
                     </div>
                   )}
                   
@@ -1425,14 +1714,41 @@
 
               <div className="form-group">
                 <label className="form-label">Seasons</label>
-                <input
-                  type="number"
-                  min="0"
-                  className="form-input"
-                  placeholder="1"
-                  value={formData.seasons}
-                  onChange={(e) => setFormData({ ...formData, seasons: e.target.value === '' ? '' : Number(e.target.value) })}
-                />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-input"
+                    placeholder="1"
+                    style={{ flex: '1', minWidth: '80px' }}
+                    value={formData.seasons}
+                    onChange={(e) => setFormData({ ...formData, seasons: e.target.value === '' ? '' : Number(e.target.value) })}
+                  />
+                  {show?.tmdbId && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={isLoadingDetails}
+                      onClick={async () => {
+                        setIsLoadingDetails(true);
+                        try {
+                          const details = await fetchTMDBDetails(show.tmdbId);
+                          if (details) {
+                            setFormData(prev => ({
+                              ...prev,
+                              seasons: details.number_of_seasons != null ? details.number_of_seasons : prev.seasons,
+                              imdbRating: details.vote_average != null ? Number(details.vote_average) : prev.imdbRating
+                            }));
+                          }
+                        } finally {
+                          setIsLoadingDetails(false);
+                        }
+                      }}
+                    >
+                      {isLoadingDetails ? 'Loading...' : 'Refresh from TMDB'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="form-group">
