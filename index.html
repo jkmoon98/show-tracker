@@ -696,35 +696,34 @@
 <body>
   <div id="root"></div>
 
+  <!-- Load config from config.js (copy config.example.js → config.js and fill in). config.js is gitignored. -->
+  <script src="config.js"></script>
+  <script>
+    window.FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
+      apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
+    };
+    window.TMDB_API_KEY = window.TMDB_API_KEY || '';
+  </script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo } = React;
 
     // ============================================
     // FIREBASE CONFIGURATION
     // ============================================
-    
-    const firebaseConfig = {
-      apiKey: "AIzaSyD_pubntY64jzaaYjfxxoWb7LTZTiUf76g",
-      authDomain: "show-tracker-f033d.firebaseapp.com",
-      projectId: "show-tracker-f033d",
-      storageBucket: "show-tracker-f033d.firebasestorage.app",
-      messagingSenderId: "1040967426524",
-      appId: "1:1040967426524:web:9f0b8fdccc84b951de2f19"
-    };
-
+    const firebaseConfig = window.FIREBASE_CONFIG;
     let auth = null;
     let db = null;
     let firebaseEnabled = false;
 
-    try {
-      firebase.initializeApp(firebaseConfig);
-      auth = firebase.auth();
-      db = firebase.firestore();
-      firebaseEnabled = true;
-      console.log("✅ Firebase initialized");
-    } catch (error) {
-      console.error("❌ Firebase initialization failed:", error);
-      firebaseEnabled = false;
+    if (firebaseConfig && firebaseConfig.apiKey) {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        firebaseEnabled = true;
+      } catch (error) {
+        console.error('Firebase initialization failed:', error);
+      }
     }
 
     // ============================================
@@ -780,15 +779,14 @@
     );
 
     // ============================================
-    // TMDB API
+    // TMDB API (client-side; key from config.js – works on free Spark plan)
     // ============================================
-    
-    const TMDB_API_KEY = '3d7c235c032f112296f751ed2076398f';
+    const TMDB_API_KEY = window.TMDB_API_KEY;
     const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
     const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 
     const searchTMDB = async (query) => {
-      if (!query.trim()) return [];
+      if (!query.trim() || !TMDB_API_KEY) return [];
       try {
         const response = await fetch(
           `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`
@@ -802,7 +800,7 @@
     };
 
     const fetchTMDBDetails = async (tvId) => {
-      if (!tvId) return null;
+      if (!tvId || !TMDB_API_KEY) return null;
       try {
         const response = await fetch(
           `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}`
@@ -862,54 +860,32 @@
         return () => unsubscribe();
       }, []);
 
-const loadShows = async (userId) => {
-  setIsLoading(true);
-  console.log('🔍 Loading shows for userId:', userId);
-
-  try {
-    // Load from users/{userId} document field "shows"
-    const userDoc = await db.collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      console.log('❌ User document not found');
-      setShows([]);
-      setIsLoading(false);
-      return;
-    }
-
-    const data = userDoc.data() || {};
-    console.log('📄 User document data:', data);
-    
-    // The shows are stored as a map/object with numeric keys
-    const showsMap = data.shows || {};
-    
-    // Convert the map to an array
-    const loadedShows = Object.keys(showsMap).map(key => {
-      const show = showsMap[key];
-      
-      // Handle old posterPath format and convert to full URL
-      let posterUrl = show.posterUrl || '';
-      if (!posterUrl && show.posterPath) {
-        posterUrl = `${TMDB_IMAGE_BASE}${show.posterPath}`;
-      }
-      
-      return {
-        id: key,
-        ...show,
-        posterUrl
+      const loadShows = async (userId) => {
+        setIsLoading(true);
+        try {
+          const userDoc = await db.collection('users').doc(userId).get();
+          if (!userDoc.exists) {
+            setShows([]);
+            setIsLoading(false);
+            return;
+          }
+          const data = userDoc.data() || {};
+          const showsMap = data.shows || {};
+          const loadedShows = Object.keys(showsMap).map(key => {
+            const show = showsMap[key];
+            let posterUrl = show.posterUrl || '';
+            if (!posterUrl && show.posterPath) {
+              posterUrl = `${TMDB_IMAGE_BASE}${show.posterPath}`;
+            }
+            return { id: key, ...show, posterUrl };
+          });
+          setShows(loadedShows);
+        } catch (error) {
+          console.error('Error loading shows:', error);
+        } finally {
+          setIsLoading(false);
+        }
       };
-    });
-
-    console.log('✅ Shows found:', loadedShows.length);
-    console.log('💾 Loaded shows with posters:', loadedShows);
-    setShows(loadedShows);
-  } catch (error) {
-    console.error('❌ Error loading shows:', error);
-    console.error('Error details:', error.code, error.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
 
 
       const signIn = async () => {
@@ -970,26 +946,21 @@ const loadShows = async (userId) => {
         }
       };
 
-const deleteShow = async (showId) => {
-  if (!user) return;
-  if (!confirm("Delete this show?")) return;
-
-  try {
-    const userRef = db.collection("users").doc(user.uid);
-
-    // ✅ FieldPath avoids dot-parsing issues in keys
-    const showPath = new firebase.firestore.FieldPath("shows", String(showId));
-
-    await userRef.update(
-      showPath, firebase.firestore.FieldValue.delete(),
-      "lastUpdated", firebase.firestore.FieldValue.serverTimestamp()
-    );
-
-    await loadShows(user.uid);
-  } catch (error) {
-    console.error("Error deleting show:", error);
-  }
-};
+      const deleteShow = async (showId) => {
+        if (!user) return;
+        if (!confirm('Delete this show?')) return;
+        try {
+          const userRef = db.collection('users').doc(user.uid);
+          const updates = {
+            [`shows.${showId}`]: firebase.firestore.FieldValue.delete(),
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          await userRef.update(updates);
+          await loadShows(user.uid);
+        } catch (error) {
+          console.error('Error deleting show:', error);
+        }
+      };
 
       // Filtered + Sorted shows
       const filteredShows = useMemo(() => {
@@ -1054,7 +1025,7 @@ const deleteShow = async (showId) => {
 
           <div className="container">
             {/* Auth Section */}
-            {firebaseEnabled && (
+            {firebaseEnabled ? (
               <div className="auth-section">
                 {user ? (
                   <div className="user-info">
@@ -1069,6 +1040,12 @@ const deleteShow = async (showId) => {
                     <button className="btn-primary" onClick={signIn}>Sign In with Google</button>
                   </div>
                 )}
+              </div>
+            ) : (
+              <div className="auth-section">
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                  Copy config.example.js to config.js and add your Firebase config to enable sync.
+                </p>
               </div>
             )}
 
@@ -1093,7 +1070,8 @@ const deleteShow = async (showId) => {
                 <option value="all">All Shows</option>
                 {Object.entries(statusConfig).map(([key, config]) => (
                   <option key={key} value={key}>{config.label}</option>
-                ))}</select>
+                ))}
+              </select>
 
               <select 
                 className="filter-select"
@@ -1276,8 +1254,8 @@ const deleteShow = async (showId) => {
           <footer className="app-footer">
             <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
             <p>
-              <a href="https://www.themoviedb.org/" target="_blank">
-                              Powered by The Movie Database (TMDB)
+              <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
+                Powered by The Movie Database (TMDB)
               </a>
             </p>
           </footer>
@@ -1326,18 +1304,20 @@ const deleteShow = async (showId) => {
       const searchTimeout = useRef(null);
 
       useEffect(() => {
-        if (tmdbQuery.length > 2) {
-          if (searchTimeout.current) clearTimeout(searchTimeout.current);
-          
-          searchTimeout.current = setTimeout(async () => {
-            setIsSearching(true);
-            const results = await searchTMDB(tmdbQuery);
-            setTmdbResults(results);
-            setIsSearching(false);
-          }, 500);
-        } else {
+        if (tmdbQuery.length <= 2) {
           setTmdbResults([]);
+          return;
         }
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+        searchTimeout.current = setTimeout(async () => {
+          setIsSearching(true);
+          const results = await searchTMDB(tmdbQuery);
+          setTmdbResults(results);
+          setIsSearching(false);
+        }, 500);
+        return () => {
+          if (searchTimeout.current) clearTimeout(searchTimeout.current);
+        };
       }, [tmdbQuery]);
 
       const selectTMDBShow = (result) => {

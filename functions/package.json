@@ -1,0 +1,13 @@
+{
+  "name": "show-tracker-functions",
+  "description": "Cloud Functions for ShowTracker (TMDB proxy)",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+  "firebase-functions": "^4.5.0"
+},
+  "private": true
+}
