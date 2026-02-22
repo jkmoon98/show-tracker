@@ -999,7 +999,91 @@
             }
           }
         };
-        return () => { delete window.refreshCompletedSeasonsFromTMDB; };
+        // Link shows that have no TMDB id: search by title, take first result, fill in tmdbId + details (fully automated, no throws)
+        window.linkUnlinkedShowsToTMDB = async function() {
+          const delay = (ms) => new Promise(r => setTimeout(r, ms));
+          try {
+            const user = auth?.currentUser;
+            let showsMap = {};
+            try {
+              if (user) {
+                const snap = await db.collection('users').doc(user.uid).get();
+                const data = snap.data() || {};
+                showsMap = data.shows || {};
+              } else {
+                const list = loadGuestShows();
+                showsMap = Object.fromEntries((list || []).map(s => [String(s.id), { ...s }]));
+              }
+            } catch (e) {
+              console.warn('Could not load shows:', e.message);
+              return;
+            }
+            const needLink = Object.entries(showsMap).filter(([, s]) => s && !s.tmdbId && (s.title || '').trim());
+            if (needLink.length === 0) {
+              console.log('All shows already have a TMDB link.');
+              return;
+            }
+            console.log('Linking', needLink.length, 'show(s) to TMDB...');
+            let linked = 0;
+            for (const [id, show] of needLink) {
+              try {
+                const title = (show.title || '').trim();
+                if (!title) continue;
+                const q = show.year ? `${title} ${show.year}` : title;
+                const results = await searchTMDB(q);
+                await delay(300);
+                if (!results || !results.length) {
+                  console.log('Skip (no result):', title);
+                  continue;
+                }
+                const first = results[0];
+                if (!first || first.id == null) continue;
+                const details = await fetchTMDBDetails(first.id);
+                await delay(300);
+                const numSeasons = details && details.number_of_seasons != null ? details.number_of_seasons : '';
+                const voteAvg = details && details.vote_average != null ? Number(details.vote_average) : 0;
+                showsMap[id] = {
+                  ...show,
+                  title: first.name || title,
+                  year: (first.first_air_date && first.first_air_date.substring(0, 4)) || show.year || '',
+                  posterUrl: first.poster_path ? `${TMDB_IMAGE_BASE}${first.poster_path}` : (show.posterUrl || ''),
+                  tmdbId: first.id,
+                  seasons: numSeasons,
+                  imdbRating: voteAvg
+                };
+                linked++;
+                console.log('Linked:', title, '→', first.name || first.id);
+              } catch (err) {
+                console.warn('Skip', show.title, err.message);
+              }
+            }
+            if (linked === 0) {
+              console.log('No shows updated.');
+              return;
+            }
+            try {
+              if (user) {
+                await db.collection('users').doc(user.uid).set(
+                  { shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+                  { merge: true }
+                );
+              } else {
+                const list = Object.keys(showsMap).sort((a, b) => Number(a) - Number(b)).map(k => ({ ...showsMap[k], id: k }));
+                saveGuestShows(list);
+              }
+              console.log('Done. Updated', linked, 'show(s). Refresh the page.');
+            } catch (e) {
+              console.warn('Save failed:', e.message);
+            }
+          } catch (err) {
+            console.warn('linkUnlinkedShowsToTMDB error:', err.message);
+          }
+        };
+
+        return () => {
+          delete window.refreshCompletedSeasonsFromTMDB;
+          delete window.linkUnlinkedShowsToTMDB;
+        };
       }, []);
 
       const loadShows = async (userId) => {
@@ -1688,52 +1772,47 @@
             </div>
 
             <form onSubmit={handleSubmit}>
-              {!show && (
-                <div className="form-group">
-                  <label className="form-label">Search TMDB</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Search for a TV show..."
-                    value={tmdbQuery}
-                    onChange={(e) => setTmdbQuery(e.target.value)}
-                  />
-                  
-                  {(isSearching || isLoadingDetails) && (
-                    <div style={{ marginTop: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                      {isSearching ? 'Searching...' : 'Loading show details (seasons, rating)...'}
-                    </div>
-                  )}
-                  
-                  {tmdbResults.length > 0 && (
-                    <div className="tmdb-results">
-                      {tmdbResults.slice(0, 5).map(result => (
-                        <div
-                          key={result.id}
-                          className="tmdb-result"
-                          onClick={() => selectTMDBShow(result)}
-                        >
-                          <div className="tmdb-poster">
-                            {result.poster_path && (
-                              <img 
-                                src={`${TMDB_IMAGE_BASE}${result.poster_path}`} 
-                                alt={result.name}
-                              />
-                            )}
-                          </div>
-                          <div className="tmdb-info">
-                            <div className="tmdb-title">{result.name}</div>
-                            <div className="tmdb-meta">
-                              {result.first_air_date?.substring(0, 4)}
-                              {result.overview && ` • ${result.overview.substring(0, 100)}...`}
-                            </div>
+              <div className="form-group">
+                <label className="form-label">
+                  {show ? 'Link or update from TMDB' : 'Search TMDB'}
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder={show ? 'Search to link this show (description, seasons, cast)' : 'Search for a TV show...'}
+                  value={tmdbQuery}
+                  onChange={(e) => setTmdbQuery(e.target.value)}
+                />
+                {(isSearching || isLoadingDetails) && (
+                  <div style={{ marginTop: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    {isSearching ? 'Searching...' : 'Loading show details (seasons, rating)...'}
+                  </div>
+                )}
+                {tmdbResults.length > 0 && (
+                  <div className="tmdb-results">
+                    {tmdbResults.slice(0, 5).map(result => (
+                      <div
+                        key={result.id}
+                        className="tmdb-result"
+                        onClick={() => selectTMDBShow(result)}
+                      >
+                        <div className="tmdb-poster">
+                          {result.poster_path && (
+                            <img src={`${TMDB_IMAGE_BASE}${result.poster_path}`} alt={result.name} />
+                          )}
+                        </div>
+                        <div className="tmdb-info">
+                          <div className="tmdb-title">{result.name}</div>
+                          <div className="tmdb-meta">
+                            {result.first_air_date?.substring(0, 4)}
+                            {result.overview && ` • ${result.overview.substring(0, 100)}...`}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="form-group">
                 <label className="form-label">Title *</label>
