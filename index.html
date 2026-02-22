@@ -957,6 +957,51 @@
         return () => unsubscribe();
       }, []);
 
+      // Expose console helper when app is mounted (run refreshCompletedSeasonsFromTMDB() in DevTools)
+      useEffect(() => {
+        window.refreshCompletedSeasonsFromTMDB = async function() {
+          const user = auth?.currentUser;
+          if (user) {
+            const userRef = db.collection('users').doc(user.uid);
+            const snap = await userRef.get();
+            const data = snap.data() || {};
+            const showsMap = data.shows || {};
+            let updated = 0;
+            for (const [id, show] of Object.entries(showsMap)) {
+              if (show.status !== 'completed' || !show.tmdbId) continue;
+              const details = await fetchTMDBDetails(show.tmdbId);
+              if (details?.number_of_seasons == null) continue;
+              showsMap[id] = { ...show, seasons: details.number_of_seasons, imdbRating: details.vote_average ?? show.imdbRating };
+              updated++;
+            }
+            if (updated > 0) {
+              await userRef.set({ shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+              console.log('Updated', updated, 'completed show(s). Refresh the page.');
+            } else {
+              console.log('No completed shows with TMDB ID found.');
+            }
+          } else {
+            const list = loadGuestShows();
+            let updated = 0;
+            for (let i = 0; i < list.length; i++) {
+              const show = list[i];
+              if (show.status !== 'completed' || !show.tmdbId) continue;
+              const details = await fetchTMDBDetails(show.tmdbId);
+              if (details?.number_of_seasons == null) continue;
+              list[i] = { ...show, seasons: details.number_of_seasons, imdbRating: details.vote_average ?? show.imdbRating };
+              updated++;
+            }
+            if (updated > 0) {
+              saveGuestShows(list);
+              console.log('Updated', updated, 'completed show(s). Refresh the page.');
+            } else {
+              console.log('No completed shows with TMDB ID found.');
+            }
+          }
+        };
+        return () => { delete window.refreshCompletedSeasonsFromTMDB; };
+      }, []);
+
       const loadShows = async (userId) => {
         setIsLoading(true);
         try {
@@ -1818,48 +1863,6 @@
           </div>
         </div>
       );
-    };
-
-    // Console helper: run refreshCompletedSeasonsFromTMDB() in DevTools to fix seasons for all completed shows
-    window.refreshCompletedSeasonsFromTMDB = async function() {
-      const user = auth?.currentUser;
-      if (user) {
-        const userRef = db.collection('users').doc(user.uid);
-        const snap = await userRef.get();
-        const data = snap.data() || {};
-        const showsMap = data.shows || {};
-        let updated = 0;
-        for (const [id, show] of Object.entries(showsMap)) {
-          if (show.status !== 'completed' || !show.tmdbId) continue;
-          const details = await fetchTMDBDetails(show.tmdbId);
-          if (details?.number_of_seasons == null) continue;
-          showsMap[id] = { ...show, seasons: details.number_of_seasons, imdbRating: details.vote_average ?? show.imdbRating };
-          updated++;
-        }
-        if (updated > 0) {
-          await userRef.set({ shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-          console.log('Updated', updated, 'completed show(s). Refresh the page.');
-        } else {
-          console.log('No completed shows with TMDB ID found.');
-        }
-      } else {
-        const list = loadGuestShows();
-        let updated = 0;
-        for (let i = 0; i < list.length; i++) {
-          const show = list[i];
-          if (show.status !== 'completed' || !show.tmdbId) continue;
-          const details = await fetchTMDBDetails(show.tmdbId);
-          if (details?.number_of_seasons == null) continue;
-          list[i] = { ...show, seasons: details.number_of_seasons, imdbRating: details.vote_average ?? show.imdbRating };
-          updated++;
-        }
-        if (updated > 0) {
-          saveGuestShows(list);
-          console.log('Updated', updated, 'completed show(s). Refresh the page.');
-        } else {
-          console.log('No completed shows with TMDB ID found.');
-        }
-      }
     };
 
     // Render app
