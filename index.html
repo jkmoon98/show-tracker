@@ -1944,6 +1944,102 @@
       );
     };
 
+    // Expose console helpers at script load so they're always available (same scope as auth, db, TMDB)
+    window.refreshCompletedSeasonsFromTMDB = async function() {
+      try {
+        const user = auth?.currentUser;
+        if (user) {
+          const userRef = db.collection('users').doc(user.uid);
+          const snap = await userRef.get();
+          const data = snap.data() || {};
+          const showsMap = data.shows || {};
+          let updated = 0;
+          for (const [id, show] of Object.entries(showsMap)) {
+            if (show.status !== 'completed' || !show.tmdbId) continue;
+            const details = await fetchTMDBDetails(show.tmdbId);
+            if (details?.number_of_seasons == null) continue;
+            showsMap[id] = { ...show, seasons: details.number_of_seasons, imdbRating: details.vote_average ?? show.imdbRating };
+            updated++;
+          }
+          if (updated > 0) {
+            await userRef.set({ shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            console.log('Updated', updated, 'completed show(s). Refresh the page.');
+          } else console.log('No completed shows with TMDB ID found.');
+        } else {
+          const list = loadGuestShows();
+          let updated = 0;
+          for (let i = 0; i < list.length; i++) {
+            const show = list[i];
+            if (show.status !== 'completed' || !show.tmdbId) continue;
+            const details = await fetchTMDBDetails(show.tmdbId);
+            if (details?.number_of_seasons == null) continue;
+            list[i] = { ...show, seasons: details.number_of_seasons, imdbRating: details.vote_average ?? show.imdbRating };
+            updated++;
+          }
+          if (updated > 0) { saveGuestShows(list); console.log('Updated', updated, 'completed show(s). Refresh the page.'); }
+          else console.log('No completed shows with TMDB ID found.');
+        }
+      } catch (e) { console.warn(e.message); }
+    };
+
+    window.linkUnlinkedShowsToTMDB = async function() {
+      const delay = (ms) => new Promise(r => setTimeout(r, ms));
+      try {
+        const user = auth?.currentUser;
+        let showsMap = {};
+        try {
+          if (user) {
+            const snap = await db.collection('users').doc(user.uid).get();
+            showsMap = (snap.data() || {}).shows || {};
+          } else {
+            const list = loadGuestShows();
+            showsMap = Object.fromEntries((list || []).map(s => [String(s.id), { ...s }]));
+          }
+        } catch (e) { console.warn('Could not load shows:', e.message); return; }
+        const needLink = Object.entries(showsMap).filter(([, s]) => s && !s.tmdbId && (s.title || '').trim());
+        if (needLink.length === 0) { console.log('All shows already have a TMDB link.'); return; }
+        console.log('Linking', needLink.length, 'show(s)...');
+        let linked = 0;
+        for (const [id, show] of needLink) {
+          try {
+            const title = (show.title || '').trim();
+            if (!title) continue;
+            const results = await searchTMDB(show.year ? `${title} ${show.year}` : title);
+            await delay(300);
+            if (!results?.length) { console.log('Skip (no result):', title); continue; }
+            const first = results[0];
+            if (!first || first.id == null) continue;
+            const details = await fetchTMDBDetails(first.id);
+            await delay(300);
+            showsMap[id] = {
+              ...show,
+              title: first.name || title,
+              year: (first.first_air_date && first.first_air_date.substring(0, 4)) || show.year || '',
+              posterUrl: first.poster_path ? `${TMDB_IMAGE_BASE}${first.poster_path}` : (show.posterUrl || ''),
+              tmdbId: first.id,
+              seasons: details?.number_of_seasons != null ? details.number_of_seasons : '',
+              imdbRating: details?.vote_average != null ? Number(details.vote_average) : 0
+            };
+            linked++;
+            console.log('Linked:', title, '→', first.name || first.id);
+          } catch (err) { console.warn('Skip', show.title, err.message); }
+        }
+        if (linked === 0) { console.log('No shows updated.'); return; }
+        try {
+          if (user) {
+            await db.collection('users').doc(user.uid).set(
+              { shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+              { merge: true }
+            );
+          } else {
+            const list = Object.keys(showsMap).sort((a, b) => Number(a) - Number(b)).map(k => ({ ...showsMap[k], id: k }));
+            saveGuestShows(list);
+          }
+          console.log('Done. Updated', linked, 'show(s). Refresh the page.');
+        } catch (e) { console.warn('Save failed:', e.message); }
+      } catch (err) { console.warn('linkUnlinkedShowsToTMDB:', err.message); }
+    };
+
     // Render app
     ReactDOM.render(<TVShowTracker />, document.getElementById('root'));
   </script>
