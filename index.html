@@ -1208,17 +1208,29 @@
           saveGuestShows(list);
           setShows(list);
           setEditingShow(null);
+          setViewingShow(null);
           return;
         }
         try {
           const userRef = db.collection('users').doc(user.uid);
-          const updates = {
-            [`shows.${showId}`]: firebase.firestore.FieldValue.delete(),
-            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-          };
-          await userRef.update(updates);
+          const snap = await userRef.get();
+          const data = snap.data() || {};
+          const showsMap = { ...(data.shows || {}) };
+          const key = Object.keys(showsMap).find(k => String(k) === String(showId));
+          if (key === undefined) {
+            await loadShows(user.uid);
+            setEditingShow(null);
+            setViewingShow(null);
+            return;
+          }
+          delete showsMap[key];
+          await userRef.set(
+            { shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
           await loadShows(user.uid);
           setEditingShow(null);
+          setViewingShow(null);
         } catch (error) {
           console.error('Error deleting show:', error);
         }
