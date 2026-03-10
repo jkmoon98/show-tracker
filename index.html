@@ -581,6 +581,27 @@
       font-size: 0.9375rem;
     }
 
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 20px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1100;
+      animation: toast-in 0.25s ease;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
     /* Show detail modal – IMDb-style info */
     .detail-modal-overlay {
       position: fixed;
@@ -838,16 +859,17 @@
     const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 
     const searchTMDB = async (query) => {
-      if (!query.trim() || !TMDB_API_KEY) return [];
+      if (!query.trim() || !TMDB_API_KEY) return { results: [], error: !TMDB_API_KEY ? 'TMDB API key not set' : null };
       try {
         const response = await fetch(
           `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`
         );
         const data = await response.json();
-        return data.results || [];
+        if (!response.ok) return { results: [], error: data.status_message || 'TMDB search failed' };
+        return { results: data.results || [] };
       } catch (error) {
         console.error('TMDB search error:', error);
-        return [];
+        return { results: [], error: error.message || 'Search failed' };
       }
     };
 
@@ -864,6 +886,8 @@
         return null;
       }
     };
+
+    const getTMDBResults = (res) => Array.isArray(res) ? res : (res && res.results) ? res.results : [];
 
     const fetchTMDBCredits = async (tvId) => {
       if (!tvId || !TMDB_API_KEY) return null;
@@ -935,6 +959,7 @@
       const [isAddingShow, setIsAddingShow] = useState(false);
       const [editingShow, setEditingShow] = useState(null);
       const [viewingShow, setViewingShow] = useState(null);
+      const [toastMessage, setToastMessage] = useState('');
 
       // Auth listener + guest load
       useEffect(() => {
@@ -1029,10 +1054,10 @@
               try {
                 const title = (show.title || '').trim();
                 if (!title) continue;
-                let results = await searchTMDB(title);
+                let results = getTMDBResults(await searchTMDB(title));
                 await delay(350);
                 if (!results?.length && show.year) {
-                  results = await searchTMDB(title + ' ' + show.year);
+                  results = getTMDBResults(await searchTMDB(title + ' ' + show.year));
                   await delay(350);
                 }
                 if (!results?.length) {
@@ -1140,6 +1165,12 @@
         }
       };
 
+      const nextGuestId = (list) => {
+        if (list.length === 0) return 0;
+        const nums = list.map(s => Number(s.id)).filter(n => !Number.isNaN(n));
+        return nums.length === 0 ? 0 : Math.max(...nums) + 1;
+      };
+
       const saveShow = async (showData) => {
         if (!user) {
           // Guest mode: save to localStorage
@@ -1154,15 +1185,19 @@
               saveGuestShows(next);
               setShows(next);
             } else {
-              const next = [...list, { ...payload, id: list.length }];
+              const nextId = nextGuestId(list);
+              const next = [...list, { ...payload, id: nextId }];
               saveGuestShows(next);
               setShows(next);
             }
           } else {
-            const next = [...list, { ...payload, id: list.length }];
+            const nextId = nextGuestId(list);
+            const next = [...list, { ...payload, id: nextId }];
             saveGuestShows(next);
             setShows(next);
           }
+          setToastMessage('Saved');
+          setTimeout(() => setToastMessage(''), 2500);
           setIsAddingShow(false);
           setEditingShow(null);
           return;
@@ -1172,32 +1207,41 @@
           const userRef = db.collection('users').doc(user.uid);
           const userDoc = await userRef.get();
           const data = userDoc.data() || {};
-          const showsMap = data.shows || {};
-          
-          if (showData.id) {
-            showsMap[showData.id] = {
-              ...showData,
+          const showsMap = { ...(data.shows || {}) };
+
+          if (showData.id !== null && showData.id !== undefined && showData.id !== '') {
+            // Edit: use the same key as in Firestore so we don't create a duplicate
+            const key = Object.keys(showsMap).find(k => String(k) === String(showData.id));
+            const updateKey = key !== undefined ? key : String(showData.id);
+            const { id: _id, ...rest } = showData;
+            showsMap[updateKey] = {
+              ...rest,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
           } else {
-            const nextId = Object.keys(showsMap).length;
+            const keys = Object.keys(showsMap).map(k => parseInt(k, 10)).filter(n => !Number.isNaN(n));
+            const nextId = keys.length === 0 ? 0 : Math.max(...keys) + 1;
             const { id, ...dataWithoutId } = showData;
             showsMap[nextId] = {
               ...dataWithoutId,
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
           }
-          
+
           await userRef.set({
             shows: showsMap,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
-          
+
           await loadShows(user.uid);
+          setToastMessage('Saved');
+          setTimeout(() => setToastMessage(''), 2500);
           setIsAddingShow(false);
           setEditingShow(null);
+          setViewingShow(null);
         } catch (error) {
           console.error('Error saving show:', error);
+          alert('Failed to save. Please try again.');
         }
       };
 
@@ -1233,6 +1277,7 @@
           setViewingShow(null);
         } catch (error) {
           console.error('Error deleting show:', error);
+          alert('Failed to delete. Please try again.');
         }
       };
 
@@ -1584,6 +1629,8 @@
               onDelete={deleteShow}
             />
           )}
+
+          {toastMessage && <div className="toast">{toastMessage}</div>}
         </div>
       );
     };
@@ -1596,12 +1643,15 @@
       const [tmdbDetails, setTmdbDetails] = useState(null);
       const [cast, setCast] = useState([]);
       const [loadingDetails, setLoadingDetails] = useState(!!show?.tmdbId);
+      const [detailsLoadError, setDetailsLoadError] = useState(null);
 
       useEffect(() => {
         if (!show?.tmdbId) {
           setLoadingDetails(false);
+          setDetailsLoadError(null);
           return;
         }
+        setDetailsLoadError(null);
         let cancelled = false;
         Promise.all([
           fetchTMDBDetails(show.tmdbId),
@@ -1610,9 +1660,13 @@
           if (!cancelled) {
             setTmdbDetails(details);
             setCast(Array.isArray(castList) ? castList.slice(0, 20) : []);
+            if (!details && show.tmdbId) setDetailsLoadError('Couldn\'t load details from TMDB');
             setLoadingDetails(false);
           }
-        }).catch(() => setLoadingDetails(false));
+        }).catch(() => {
+          if (!cancelled) setDetailsLoadError('Couldn\'t load details from TMDB');
+          setLoadingDetails(false);
+        });
         return () => { cancelled = true; };
       }, [show?.tmdbId]);
 
@@ -1663,6 +1717,8 @@
                 </div>
                 {loadingDetails ? (
                   <p className="detail-overview" style={{ color: 'var(--text-muted)' }}>Loading description…</p>
+                ) : detailsLoadError ? (
+                  <p className="detail-overview" style={{ color: '#f85149' }}>{detailsLoadError}</p>
                 ) : overview ? (
                   <p className="detail-overview">{overview}</p>
                 ) : null}
@@ -1707,6 +1763,8 @@
       const [tmdbResults, setTmdbResults] = useState([]);
       const [isSearching, setIsSearching] = useState(false);
       const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+      const [tmdbSearchError, setTmdbSearchError] = useState(null);
+      const [tmdbDetailsError, setTmdbDetailsError] = useState(null);
 
       const [formData, setFormData] = useState({
         title: show?.title || '',
@@ -1725,12 +1783,16 @@
       useEffect(() => {
         if (tmdbQuery.length <= 2) {
           setTmdbResults([]);
+          setTmdbSearchError(null);
           return;
         }
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
         searchTimeout.current = setTimeout(async () => {
           setIsSearching(true);
-          const results = await searchTMDB(tmdbQuery);
+          setTmdbSearchError(null);
+          const res = await searchTMDB(tmdbQuery);
+          const results = getTMDBResults(res);
+          if (res && res.error) setTmdbSearchError(res.error);
           setTmdbResults(results);
           setIsSearching(false);
         }, 500);
@@ -1743,8 +1805,12 @@
         setTmdbResults([]);
         setTmdbQuery('');
         setIsLoadingDetails(true);
+        setTmdbDetailsError(null);
         try {
           const details = await fetchTMDBDetails(result.id);
+          if (!details) {
+            setTmdbDetailsError('Couldn\'t load details from TMDB');
+          }
           const numSeasons = details?.number_of_seasons != null ? details.number_of_seasons : '';
           const voteAvg = details?.vote_average != null ? Number(details.vote_average) : 0;
           setFormData(prev => ({
@@ -1757,6 +1823,7 @@
             imdbRating: voteAvg
           }));
         } catch (e) {
+          setTmdbDetailsError('Couldn\'t load details from TMDB');
           setFormData(prev => ({
             ...prev,
             title: result.name,
@@ -1805,6 +1872,16 @@
                 {(isSearching || isLoadingDetails) && (
                   <div style={{ marginTop: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
                     {isSearching ? 'Searching...' : 'Loading show details (seasons, rating)...'}
+                  </div>
+                )}
+                {tmdbSearchError && (
+                  <div style={{ marginTop: '8px', color: '#f85149', fontSize: '13px' }}>
+                    {tmdbSearchError}
+                  </div>
+                )}
+                {tmdbDetailsError && (
+                  <div style={{ marginTop: '8px', color: '#f85149', fontSize: '13px' }}>
+                    {tmdbDetailsError}
                   </div>
                 )}
                 {tmdbResults.length > 0 && (
