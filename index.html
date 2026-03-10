@@ -1171,6 +1171,18 @@
         return nums.length === 0 ? 0 : Math.max(...nums) + 1;
       };
 
+      // Firestore rejects undefined; strip it so writes don't fail
+      const stripUndefined = (obj) => {
+        if (obj === null || typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(stripUndefined);
+        const out = {};
+        for (const k of Object.keys(obj)) {
+          if (obj[k] === undefined) continue;
+          out[k] = stripUndefined(obj[k]);
+        }
+        return out;
+      };
+
       const saveShow = async (showData) => {
         if (!user) {
           // Guest mode: save to localStorage
@@ -1212,24 +1224,32 @@
           if (showData.id !== null && showData.id !== undefined && showData.id !== '') {
             // Edit: use the same key as in Firestore so we don't create a duplicate
             const key = Object.keys(showsMap).find(k => String(k) === String(showData.id));
-            const updateKey = key !== undefined ? key : String(showData.id);
+            if (key === undefined) {
+              await loadShows(user.uid);
+              setEditingShow(null);
+              setViewingShow(null);
+              alert('Show not found in list. Refreshed.');
+              return;
+            }
+            const updateKey = String(key);
             const { id: _id, ...rest } = showData;
-            showsMap[updateKey] = {
-              ...rest,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
+            const payload = { ...stripUndefined(rest), updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            showsMap[updateKey] = payload;
           } else {
             const keys = Object.keys(showsMap).map(k => parseInt(k, 10)).filter(n => !Number.isNaN(n));
             const nextId = keys.length === 0 ? 0 : Math.max(...keys) + 1;
+            const mapKey = String(nextId);
             const { id, ...dataWithoutId } = showData;
-            showsMap[nextId] = {
-              ...dataWithoutId,
-              createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
+            const payload = { ...stripUndefined(dataWithoutId), createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+            showsMap[mapKey] = payload;
           }
 
+          const cleanMap = {};
+          for (const k of Object.keys(showsMap)) {
+            cleanMap[String(k)] = showsMap[k];
+          }
           await userRef.set({
-            shows: showsMap,
+            shows: cleanMap,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
 
@@ -1268,8 +1288,12 @@
             return;
           }
           delete showsMap[key];
+          const cleanMap = {};
+          for (const k of Object.keys(showsMap)) {
+            cleanMap[String(k)] = showsMap[k];
+          }
           await userRef.set(
-            { shows: showsMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+            { shows: cleanMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
             { merge: true }
           );
           await loadShows(user.uid);
