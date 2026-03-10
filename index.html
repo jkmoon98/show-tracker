@@ -728,6 +728,52 @@
       color: var(--text-muted);
     }
 
+    .detail-list-section {
+      margin-top: 16px;
+    }
+
+    .detail-list-dropdown-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .detail-list-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      min-width: 160px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .detail-list-dropdown-item {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      text-align: left;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .detail-list-dropdown-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .detail-list-dropdown-item.in-list {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
     .detail-actions {
       display: flex;
       gap: 10px;
@@ -960,6 +1006,8 @@
       const [editingShow, setEditingShow] = useState(null);
       const [viewingShow, setViewingShow] = useState(null);
       const [toastMessage, setToastMessage] = useState('');
+      const [lists, setLists] = useState({});
+      const [selectedListId, setSelectedListId] = useState('');
 
       // Auth listener + guest load
       useEffect(() => {
@@ -1184,11 +1232,13 @@
           const userDoc = await db.collection('users').doc(userId).get(getOptions);
           if (!userDoc.exists) {
             setShows([]);
+            setLists({});
             setIsLoading(false);
             return;
           }
           const data = userDoc.data() || {};
           const showsMap = data.shows || {};
+          setLists(data.lists || {});
           const loadedShows = Object.keys(showsMap).map(key => {
             const show = showsMap[key];
             let posterUrl = show.posterUrl || '';
@@ -1375,16 +1425,107 @@
         }
       };
 
+      const createList = async (name) => {
+        if (!user || !name.trim()) return;
+        const listId = 'list_' + Date.now();
+        const newLists = { ...lists, [listId]: { name: name.trim(), showIds: [] } };
+        setLists(newLists);
+        try {
+          await db.collection('users').doc(user.uid).set(
+            { lists: newLists, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+          setSelectedListId(listId);
+          setToastMessage('List created');
+          setTimeout(() => setToastMessage(''), 2000);
+        } catch (e) {
+          console.error('Error creating list:', e);
+          setLists(lists);
+        }
+      };
+
+      const addShowToList = async (listId, showId) => {
+        if (!user || !lists[listId]) return;
+        const list = lists[listId];
+        if (list.showIds && list.showIds.includes(showId)) return;
+        const showIds = [...(list.showIds || []), showId];
+        const newLists = { ...lists, [listId]: { ...list, showIds } };
+        setLists(newLists);
+        try {
+          await db.collection('users').doc(user.uid).set(
+            { lists: newLists, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+          setToastMessage('Added to list');
+          setTimeout(() => setToastMessage(''), 2000);
+        } catch (e) {
+          console.error('Error adding to list:', e);
+          setLists(lists);
+        }
+      };
+
+      const removeShowFromList = async (listId, showId) => {
+        if (!user || !lists[listId]) return;
+        const list = lists[listId];
+        const showIds = (list.showIds || []).filter(id => id !== showId);
+        const newLists = { ...lists, [listId]: { ...list, showIds } };
+        setLists(newLists);
+        try {
+          await db.collection('users').doc(user.uid).set(
+            { lists: newLists, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+          setToastMessage('Removed from list');
+          setTimeout(() => setToastMessage(''), 2000);
+        } catch (e) {
+          console.error('Error removing from list:', e);
+          setLists(lists);
+        }
+      };
+
+      const deleteList = async (listId) => {
+        if (!user || !lists[listId]) return;
+        if (!confirm('Delete this list? Shows in it are not removed.')) return;
+        const newLists = { ...lists };
+        delete newLists[listId];
+        setLists(newLists);
+        if (selectedListId === listId) setSelectedListId('');
+        try {
+          await db.collection('users').doc(user.uid).set(
+            { lists: newLists, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+          setToastMessage('List deleted');
+          setTimeout(() => setToastMessage(''), 2000);
+        } catch (e) {
+          console.error('Error deleting list:', e);
+          setLists(lists);
+        }
+      };
+
       // Filtered + Sorted shows
       const filteredShows = useMemo(() => {
-        const filtered = shows.filter(show => {
+        let filtered = shows.filter(show => {
           const matchesSearch = (show.title || '').toLowerCase().includes(searchQuery.toLowerCase());
           const matchesStatus = statusFilter === 'all' || show.status === statusFilter;
           return matchesSearch && matchesStatus;
         });
+        if (selectedListId && lists[selectedListId]) {
+          const ids = lists[selectedListId].showIds || [];
+          filtered = filtered.filter(show => ids.includes(String(show.id)));
+        }
 
         const sorted = [...filtered];
         const safeNum = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : null);
+
+        const getAddedTime = (s) => {
+          const t = s.createdAt;
+          if (!t) return 0;
+          if (typeof t.toMillis === 'function') return t.toMillis();
+          if (t.seconds != null) return t.seconds * 1000;
+          if (t instanceof Date) return t.getTime();
+          return 0;
+        };
 
         sorted.sort((a, b) => {
           const at = (a.title || '').toLowerCase();
@@ -1393,10 +1534,11 @@
           const br = safeNum(b.imdbRating);
 
           switch (sortOption) {
+            case 'recentlyAdded':
+              return getAddedTime(b) - getAddedTime(a) || at.localeCompare(bt);
             case 'titleDesc':
               return bt.localeCompare(at);
             case 'imdbAsc': {
-              // missing ratings go last
               if (ar === null && br === null) return at.localeCompare(bt);
               if (ar === null) return 1;
               if (br === null) return -1;
@@ -1415,7 +1557,7 @@
         });
 
         return sorted;
-      }, [shows, searchQuery, statusFilter, sortOption]);
+      }, [shows, searchQuery, statusFilter, sortOption, selectedListId, lists]);
 
       // Stats
       const stats = useMemo(() => {
@@ -1490,6 +1632,43 @@
                 />
               </div>
 
+              {user && (
+                <>
+                  <select
+                    className="filter-select"
+                    value={selectedListId}
+                    onChange={(e) => setSelectedListId(e.target.value)}
+                    title="Custom list"
+                  >
+                    <option value="">All Shows</option>
+                    {Object.entries(lists).map(([id, list]) => (
+                      <option key={id} value={id}>{list.name}</option>
+                    ))}
+                  </select>
+                  {selectedListId && lists[selectedListId] && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => deleteList(selectedListId)}
+                      style={{ color: '#f85149' }}
+                      title="Delete this list"
+                    >
+                      Delete list
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      const name = prompt('List name');
+                      if (name && name.trim()) createList(name.trim());
+                    }}
+                  >
+                    New list
+                  </button>
+                </>
+              )}
+
               <select 
                 className="filter-select"
                 value={statusFilter}
@@ -1508,6 +1687,7 @@
               >
                 <option value="titleAsc">Title (A–Z)</option>
                 <option value="titleDesc">Title (Z–A)</option>
+                <option value="recentlyAdded">Recently added</option>
                 <option value="imdbDesc">IMDb Rating (High → Low)</option>
                 <option value="imdbAsc">IMDb Rating (Low → High)</option>
               </select>
@@ -1549,10 +1729,10 @@
                   <Film size={64} />
                 </div>
                 <div className="empty-title">
-                  {searchQuery ? 'No shows found' : 'No shows yet'}
+                  {searchQuery ? 'No shows found' : selectedListId && lists[selectedListId] ? 'This list is empty' : 'No shows yet'}
                 </div>
                 <div className="empty-text">
-                  {searchQuery ? 'Try a different search term' : 'Click "Add Show" to start tracking'}
+                  {searchQuery ? 'Try a different search term' : selectedListId && lists[selectedListId] ? 'Add shows from "All Shows", open a show and use "Add to list"' : 'Click "Add Show" to start tracking'}
                 </div>
               </div>
             ) : viewMode === 'list' ? (
@@ -1703,6 +1883,8 @@
           {viewingShow && (
             <ShowDetailModal
               show={viewingShow}
+              lists={lists}
+              selectedListId={selectedListId}
               onClose={() => setViewingShow(null)}
               onEdit={() => {
                 setViewingShow(null);
@@ -1712,6 +1894,8 @@
                 await deleteShow(id);
                 setViewingShow(null);
               }}
+              onAddToList={addShowToList}
+              onRemoveFromList={removeShowFromList}
             />
           )}
 
@@ -1733,11 +1917,22 @@
     // SHOW DETAIL MODAL (IMDb-style info)
     // ============================================
 
-    const ShowDetailModal = ({ show, onClose, onEdit, onDelete }) => {
+    const ShowDetailModal = ({ show, lists, selectedListId, onClose, onEdit, onDelete, onAddToList, onRemoveFromList }) => {
       const [tmdbDetails, setTmdbDetails] = useState(null);
       const [cast, setCast] = useState([]);
       const [loadingDetails, setLoadingDetails] = useState(!!show?.tmdbId);
       const [detailsLoadError, setDetailsLoadError] = useState(null);
+      const [listDropdownOpen, setListDropdownOpen] = useState(false);
+      const listDropdownRef = React.useRef(null);
+      React.useEffect(() => {
+        const close = (e) => {
+          if (listDropdownRef.current && !listDropdownRef.current.contains(e.target)) setListDropdownOpen(false);
+        };
+        if (listDropdownOpen) {
+          document.addEventListener('click', close);
+          return () => document.removeEventListener('click', close);
+        }
+      }, [listDropdownOpen]);
 
       useEffect(() => {
         if (!show?.tmdbId) {
@@ -1833,6 +2028,41 @@
                       ))}
                     </div>
                   </>
+                )}
+                {lists && Object.keys(lists).length > 0 && (
+                  <div className="detail-list-section" ref={listDropdownRef}>
+                    <div className="detail-cast-heading">Lists</div>
+                    <div className="detail-list-dropdown-wrap">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={(e) => { e.stopPropagation(); setListDropdownOpen(!listDropdownOpen); }}
+                      >
+                        Add to list ▾
+                      </button>
+                      {listDropdownOpen && (
+                        <div className="detail-list-dropdown" onClick={(e) => e.stopPropagation()}>
+                          {Object.entries(lists).map(([listId, list]) => {
+                            const showIds = list.showIds || [];
+                            const inList = showIds.includes(String(show.id));
+                            return (
+                              <button
+                                key={listId}
+                                type="button"
+                                className={'detail-list-dropdown-item' + (inList ? ' in-list' : '')}
+                                onClick={() => {
+                                  inList ? onRemoveFromList(listId, show.id) : onAddToList(listId, show.id);
+                                  setListDropdownOpen(false);
+                                }}
+                              >
+                                {inList ? '✓ ' : ''}{list.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
