@@ -1112,16 +1112,76 @@
           }
         };
 
+        window.deduplicateShows = async function() {
+          const user = auth?.currentUser;
+          if (!user) {
+            console.warn('Sign in first.');
+            return;
+          }
+          const userRef = db.collection('users').doc(user.uid);
+          const snap = await userRef.get({ source: 'server' });
+          const data = snap.data() || {};
+          const showsMap = data.shows || {};
+          const keys = Object.keys(showsMap);
+          if (keys.length === 0) {
+            console.log('No shows to deduplicate.');
+            return;
+          }
+          const getSig = (show) => {
+            if (show.tmdbId != null && show.tmdbId !== '') return 'tmdb:' + String(show.tmdbId);
+            const t = (show.title || '').trim().toLowerCase();
+            const y = (show.year != null && show.year !== '') ? String(show.year) : '';
+            return 'title:' + t + '|' + y;
+          };
+          const groups = {};
+          for (const k of keys) {
+            const show = showsMap[k];
+            if (!show) continue;
+            const sig = getSig(show);
+            if (!groups[sig]) groups[sig] = [];
+            groups[sig].push({ key: k, show });
+          }
+          const keysToRemove = [];
+          for (const sig of Object.keys(groups)) {
+            const arr = groups[sig];
+            if (arr.length <= 1) continue;
+            for (let i = 1; i < arr.length; i++) keysToRemove.push(arr[i].key);
+          }
+          if (keysToRemove.length === 0) {
+            console.log('No duplicates found.');
+            const cleaned = {};
+            for (const k of keys) {
+              const show = showsMap[k];
+              const { id, ...rest } = show || {};
+              cleaned[String(k)] = rest;
+            }
+            await userRef.set({ shows: cleaned, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            console.log('Cleaned inner ids. Refresh the page.');
+            return;
+          }
+          const newMap = {};
+          for (const k of keys) {
+            if (keysToRemove.includes(k)) continue;
+            const show = showsMap[k];
+            const { id, ...rest } = show || {};
+            newMap[String(k)] = rest;
+          }
+          await userRef.set({ shows: newMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          console.log('Removed', keysToRemove.length, 'duplicate(s). Cleaned ids. Refresh the page.');
+        };
+
         return () => {
           delete window.refreshCompletedSeasonsFromTMDB;
           delete window.linkUnlinkedShowsToTMDB;
+          delete window.deduplicateShows;
         };
       }, []);
 
-      const loadShows = async (userId) => {
+      const loadShows = async (userId, fromServer = false) => {
         setIsLoading(true);
         try {
-          const userDoc = await db.collection('users').doc(userId).get();
+          const getOptions = fromServer ? { source: 'server' } : undefined;
+          const userDoc = await db.collection('users').doc(userId).get(getOptions);
           if (!userDoc.exists) {
             setShows([]);
             setIsLoading(false);
@@ -1135,7 +1195,7 @@
             if (!posterUrl && show.posterPath) {
               posterUrl = `${TMDB_IMAGE_BASE}${show.posterPath}`;
             }
-            return { id: key, ...show, posterUrl };
+            return { ...show, id: key, posterUrl };
           });
           setShows(loadedShows);
         } catch (error) {
@@ -1220,12 +1280,13 @@
           const userDoc = await userRef.get();
           const data = userDoc.data() || {};
           const showsMap = { ...(data.shows || {}) };
+          const keys = Object.keys(showsMap);
 
           if (showData.id !== null && showData.id !== undefined && showData.id !== '') {
             // Edit: use the same key as in Firestore so we don't create a duplicate
-            const key = Object.keys(showsMap).find(k => String(k) === String(showData.id));
+            const key = keys.find(k => String(k) === String(showData.id));
             if (key === undefined) {
-              await loadShows(user.uid);
+              await loadShows(user.uid, true);
               setEditingShow(null);
               setViewingShow(null);
               alert('Show not found in list. Refreshed.');
@@ -1236,8 +1297,8 @@
             const payload = { ...stripUndefined(rest), updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
             showsMap[updateKey] = payload;
           } else {
-            const keys = Object.keys(showsMap).map(k => parseInt(k, 10)).filter(n => !Number.isNaN(n));
-            const nextId = keys.length === 0 ? 0 : Math.max(...keys) + 1;
+            const numKeys = keys.map(k => parseInt(k, 10)).filter(n => !Number.isNaN(n));
+            const nextId = numKeys.length === 0 ? 0 : Math.max(...numKeys) + 1;
             const mapKey = String(nextId);
             const { id, ...dataWithoutId } = showData;
             const payload = { ...stripUndefined(dataWithoutId), createdAt: firebase.firestore.FieldValue.serverTimestamp() };
@@ -1253,7 +1314,7 @@
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
 
-          await loadShows(user.uid);
+          await loadShows(user.uid, true);
           setToastMessage('Saved');
           setTimeout(() => setToastMessage(''), 2500);
           setIsAddingShow(false);
@@ -1279,24 +1340,33 @@
           const userRef = db.collection('users').doc(user.uid);
           const snap = await userRef.get();
           const data = snap.data() || {};
-          const showsMap = { ...(data.shows || {}) };
-          const key = Object.keys(showsMap).find(k => String(k) === String(showId));
+          const showsMap = data.shows || {};
+          const keys = Object.keys(showsMap);
+          const key = keys.find(k => String(k) === String(showId));
           if (key === undefined) {
-            await loadShows(user.uid);
+            await loadShows(user.uid, true);
             setEditingShow(null);
             setViewingShow(null);
             return;
           }
-          delete showsMap[key];
-          const cleanMap = {};
-          for (const k of Object.keys(showsMap)) {
-            cleanMap[String(k)] = showsMap[k];
+          const fieldPath = 'shows.' + String(key);
+          try {
+            await userRef.update({
+              [fieldPath]: firebase.firestore.FieldValue.delete(),
+              lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } catch (updateErr) {
+            const copy = {};
+            for (const k of Object.keys(showsMap)) {
+              if (k === key) continue;
+              copy[String(k)] = showsMap[k];
+            }
+            await userRef.set(
+              { shows: copy, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
+              { merge: true }
+            );
           }
-          await userRef.set(
-            { shows: cleanMap, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() },
-            { merge: true }
-          );
-          await loadShows(user.uid);
+          await loadShows(user.uid, true);
           setEditingShow(null);
           setViewingShow(null);
         } catch (error) {
