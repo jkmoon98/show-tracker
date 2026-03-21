@@ -820,7 +820,9 @@
     window.FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
       apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
     };
+    // Spark: set TMDB_API_KEY in config.js. Blaze + Functions: optional proxy (see TMDB section).
     window.TMDB_API_KEY = window.TMDB_API_KEY || '';
+    window.TMDB_PROXY_BASE = window.TMDB_PROXY_BASE || '';
   </script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo } = React;
@@ -898,21 +900,32 @@
     );
 
     // ============================================
-    // TMDB API (client-side; key from config.js – works on free Spark plan)
+    // TMDB: proxy (Blaze + Functions) if TMDB_PROXY_BASE is set; else direct API (Spark — key in config.js)
     // ============================================
-    const TMDB_API_KEY = window.TMDB_API_KEY;
+    const TMDB_API_KEY = (window.TMDB_API_KEY || '').trim();
+    const TMDB_PROXY_BASE = (window.TMDB_PROXY_BASE || '').trim();
     const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
     const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
+    const tmdbUseProxy = !!TMDB_PROXY_BASE;
 
     const searchTMDB = async (query) => {
-      if (!query.trim() || !TMDB_API_KEY) return { results: [], error: !TMDB_API_KEY ? 'TMDB API key not set' : null };
+      if (!query.trim()) return { results: [], error: null };
+      if (!tmdbUseProxy && !TMDB_API_KEY) {
+        return { results: [], error: 'TMDB API key not set (add window.TMDB_API_KEY in config.js)' };
+      }
       try {
-        const response = await fetch(
-          `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`
-        );
+        const url = tmdbUseProxy
+          ? `${TMDB_PROXY_BASE}/searchTMDB?q=${encodeURIComponent(query)}`
+          : `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+        const response = await fetch(url);
         const data = await response.json();
-        if (!response.ok) return { results: [], error: data.status_message || 'TMDB search failed' };
-        return { results: data.results || [] };
+        if (!response.ok) {
+          return { results: [], error: data.error || data.status_message || 'TMDB search failed' };
+        }
+        const results = tmdbUseProxy
+          ? (Array.isArray(data) ? data : (data.results || []))
+          : (data.results || []);
+        return { results, error: null };
       } catch (error) {
         console.error('TMDB search error:', error);
         return { results: [], error: error.message || 'Search failed' };
@@ -920,11 +933,12 @@
     };
 
     const fetchTMDBDetails = async (tvId) => {
-      if (!tvId || !TMDB_API_KEY) return null;
+      if (!tvId || (!tmdbUseProxy && !TMDB_API_KEY)) return null;
       try {
-        const response = await fetch(
-          `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}`
-        );
+        const url = tmdbUseProxy
+          ? `${TMDB_PROXY_BASE}/tmdbDetails?id=${encodeURIComponent(tvId)}`
+          : `${TMDB_BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}`;
+        const response = await fetch(url);
         if (!response.ok) return null;
         return await response.json();
       } catch (error) {
@@ -936,11 +950,12 @@
     const getTMDBResults = (res) => Array.isArray(res) ? res : (res && res.results) ? res.results : [];
 
     const fetchTMDBCredits = async (tvId) => {
-      if (!tvId || !TMDB_API_KEY) return null;
+      if (!tvId || (!tmdbUseProxy && !TMDB_API_KEY)) return null;
       try {
-        const response = await fetch(
-          `${TMDB_BASE_URL}/tv/${tvId}/credits?api_key=${TMDB_API_KEY}`
-        );
+        const url = tmdbUseProxy
+          ? `${TMDB_PROXY_BASE}/tmdbCredits?id=${encodeURIComponent(tvId)}`
+          : `${TMDB_BASE_URL}/tv/${tvId}/credits?api_key=${TMDB_API_KEY}`;
+        const response = await fetch(url);
         if (!response.ok) return null;
         const data = await response.json();
         return data.cast || [];

@@ -1,5 +1,6 @@
 # Secrets (copy from config.example.js and fill in)
 config.js
+functions/.env
 
 # Firebase
 .firebase/

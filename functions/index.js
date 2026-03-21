@@ -4,8 +4,14 @@ const functions = require('firebase-functions');
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
-// Prefer params (set in .env or Firebase). Legacy: firebase functions:config:set tmdb.apikey="..."
+// Set via functions/.env (see .env.example) or Firebase deploy params. Legacy v1: firebase functions:config:set tmdb.apikey="..."
 const tmdbApiKeyParam = defineString('TMDB_API_KEY', { default: '' });
+
+const httpOpts = {
+  cors: true,
+  region: 'us-central1',
+  invoker: 'public',
+};
 
 function getTmdbKey() {
   const fromParam = tmdbApiKeyParam.value();
@@ -17,20 +23,7 @@ function getTmdbKey() {
   }
 }
 
-function setCors(res) {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  res.set('Access-Control-Max-Age', '3600');
-}
-
-exports.searchTMDB = onRequest(async (req, res) => {
-  setCors(res);
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-
+exports.searchTMDB = onRequest(httpOpts, async (req, res) => {
   const apiKey = getTmdbKey();
   if (!apiKey) {
     res.status(500).json({ error: 'TMDB API key not configured' });
@@ -54,13 +47,7 @@ exports.searchTMDB = onRequest(async (req, res) => {
   }
 });
 
-exports.tmdbDetails = onRequest(async (req, res) => {
-  setCors(res);
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-
+exports.tmdbDetails = onRequest(httpOpts, async (req, res) => {
   const apiKey = getTmdbKey();
   if (!apiKey) {
     res.status(500).json({ error: 'TMDB API key not configured' });
@@ -84,6 +71,34 @@ exports.tmdbDetails = onRequest(async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('TMDB details error:', error);
+    res.status(500).json({ error: 'Request failed' });
+  }
+});
+
+exports.tmdbCredits = onRequest(httpOpts, async (req, res) => {
+  const apiKey = getTmdbKey();
+  if (!apiKey) {
+    res.status(500).json({ error: 'TMDB API key not configured' });
+    return;
+  }
+
+  const id = req.query.id || req.query.tv_id;
+  if (!id) {
+    res.status(400).json({ error: 'Missing id' });
+    return;
+  }
+
+  try {
+    const url = `${TMDB_BASE}/tv/${id}/credits?api_key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      res.status(response.status).json({ error: 'Not found' });
+      return;
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('TMDB credits error:', error);
     res.status(500).json({ error: 'Request failed' });
   }
 });

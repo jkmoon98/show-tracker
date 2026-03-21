@@ -1,23 +1,32 @@
 # ShowTracker
 
-A personal TV show diary with Firebase auth/sync and TMDB search. Runs on the **free Firebase Spark plan** (no Cloud Functions).
+A personal TV show diary with Firebase auth/sync and TMDB search.
 
-## Setup
+## Setup (Firebase Spark / free tier)
 
 1. Copy `config.example.js` to `config.js`.
-2. Fill in your **Firebase** config (Firebase Console → Project settings → Your apps).
-3. Add your **TMDB API key** in `config.js` (get one at [TMDB](https://www.themoviedb.org/settings/api)).
+2. Fill in **Firebase** (Firebase Console → Project settings → Your apps).
+3. Add your **TMDB API key** in `config.js` as `window.TMDB_API_KEY` ([TMDB API settings](https://www.themoviedb.org/settings/api)). The key is visible in the browser (normal for TMDB on a static site).
 
-`config.js` is gitignored – don’t commit it.
+`config.js` is gitignored.
+
+## Optional: TMDB via Cloud Functions (Blaze plan)
+
+If you upgrade to **Blaze**, you can deploy the proxy in `functions/` and set `window.TMDB_PROXY_BASE` in `config.js` to your functions URL (no TMDB key in the client). Copy `functions/.env.example` → `functions/.env` with `TMDB_API_KEY` for deploy.
 
 ## Local development
 
-Open `index.html` in a browser or use a local server. Ensure `config.js` exists with your keys.
+Use a local static server so `config.js` loads (e.g. `npx serve .` from the repo root).
 
-## Deploy
+## Deploy (hosting only on Spark)
 
 ```bash
-firebase deploy
+firebase deploy --only hosting
 ```
 
-Deploys **hosting only** (no Blaze plan required). Have `config.js` in the project root with your values before deploying.
+## Deploy (hosting + functions on Blaze)
+
+```bash
+cd functions && npm install && cd ..
+firebase deploy
+```
