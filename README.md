@@ -30,3 +30,19 @@ firebase deploy --only hosting
 cd functions && npm install && cd ..
 firebase deploy
 ```
+
+## Rotating the TMDB API key
+
+To rotate your TMDB key without committing secrets, use the helper script:
+
+```bash
+TMDB_API_KEY="your_new_tmdb_key" ./scripts/rotate-tmdb-key.sh
+```
+
+The script updates your local `config.js` (client-side) and `functions/.env` (server-side, if you later deploy), then redeploys Hosting.
+
+If you want to skip redeploy:
+
+```bash
+TMDB_API_KEY="your_new_tmdb_key" ./scripts/rotate-tmdb-key.sh --no-deploy
+```
